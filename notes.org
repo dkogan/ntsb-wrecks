@@ -1,0 +1,53 @@
+https://www.ntsb.gov/_layouts/ntsb.aviation/index.aspx
+https://app.ntsb.gov/avdata/
+
+wget -r -np -e robots=off https://app.ntsb.gov/avdata/Access/
+
+I unzipped them all. And I
+
+  ../../../mdb2sqlite.py blah.mdb | sqlite3 blah.sqlite
+select * from events where trim(lower(ev_city)) = 'sunland';
+
+
+select * from events where lower(ev_city) like 'sunland%' and ev_state = 'CA';
+
+
+ev_id
+
+
+https://app.ntsb.gov/pdfgenerator/ReportGeneratorFile.ashx?EventID=20120214X84853&AKey=1&RType=HTML&IType=CA
+
+
+* havelatlon
+
+select latitude,longitude,printf("https://app.ntsb.gov/pdfgenerator/ReportGeneratorFile.ashx?EventID=%s&AKey=1&RType=HTML&IType=CA",ev_id) from events where trim(latitude) != '';
+
+and then a bit of manual reformatting
+
+* distance from observation
+
+select wx_obs_fac_id,wx_obs_dist,wx_obs_dir,printf("https://app.ntsb.gov/pdfgenerator/ReportGeneratorFile.ashx?EventID=%s&AKey=1&RType=HTML&IType=CA",ev_id) from events where wx_obs_dist is not null and wx_obs_dist > 0;
+
+observed.vnl
+
+* extracting airport codes
+
+Got raw data ([[file:airport-codes_csv.csv]]) from here:
+
+https://datahub.io/core/airport-codes
+
+
+There were several places where this data was available, but many of these weren't as complete as I needed them to be. For instance this:
+
+  https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat
+
+was missing the WDG airport (and presumably many others).
+
+./parse_airport_data.pl
+
+* plotting
+
+< havelatlon.vnl vnl-filter 'latitude > 34.1 && latitude < 34.5 && longitude > -118.3 && longitude < -117.9' -p lon,lat > havelatlon.lonlat.vnl
+
+~/projects/osmgnuplot/osmgnuplot.pl --zoom 5 --center 34,-118 --rad 60miles
+
