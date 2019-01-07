@@ -16,6 +16,7 @@ while ( my $row = $csv->getline( *STDIN ) )
           $_ = '-' if length == 0; # set NULL fields
           s/\s/_/g;                # remove interstitial whitespace
           s/\\/_/g;                # remove interstitial \
+          s/#//g;                  # remove # characters
       } @$row;
     say join(' ', @$row);
 }
