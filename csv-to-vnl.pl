@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use feature ':5.10';
 use Text::CSV;
+use Text::Unidecode 'unidecode';
 
 my $csv = Text::CSV->new ( { binary => 1 } )
   or die 'Cannot use CSV: '.Text::CSV->error_diag ();
@@ -17,6 +18,7 @@ while ( my $row = $csv->getline( *STDIN ) )
           s/\s/_/g;                # remove interstitial whitespace
           s/\\/_/g;                # remove interstitial \
           s/#//g;                  # remove # characters
+          $_=unidecode($_)
       } @$row;
     say join(' ', @$row);
 }
