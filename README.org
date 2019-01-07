@@ -34,6 +34,11 @@ dataset, I don't know if military ones are covered as well.
 
 * Details
 
+We download some data, massage it, and produce a single [[http://github.com/dkogan/vnlog][vnlog]] that contains
+everything we care about. Below, I describe how I made this file, but a
+pre-cooked copy is available in this repo: [[file:joint.vnl]]. This can be used to
+visualize specific areas, as described [[Putting it all together][below]].
+
 This all works /today/ (January 2019) on my up-to-date Debian/sid box. The URLs
 and tools and such can change at any time, so interpret all this as a set of
 loose guidelines. Make adjustments as required.
@@ -110,7 +115,8 @@ $ vnl-join -a1 --vnl-sort - -j wx_obs_fac_id                                    
 ** Putting it all together
 
 Now we have all the information, and we run another script to generate a =.kml=
-that mapping tools can ingest. To see all the incidents in the San Gabriel
+that mapping tools can ingest. I cut it down to a small region because web
+browsers are glacially slow. To see all the incidents in the San Gabriel
 Mountains:
 
 #+BEGIN_EXAMPLE
