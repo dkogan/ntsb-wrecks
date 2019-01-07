@@ -1,53 +1,114 @@
+* Synopsis
+
+Check this out!
+
+https://caltopo.com/m/N13E
+
+WARNING: non-tiny amount of data, so this is SLOW
+
+* Overview
+
+This is a set of scripts to massage NTSB incident reports into a visualization
+of crash sites. After an aviation incident occurs, the NTSB investigates each
+event, and publishes a report. These often contain information about the crash
+site location. Sometimes this exists explicitly: as a latitude, longitude pair.
+At other times, the report lists the bearing and range to an "observing
+facility". This set of tools extracts both of these into a visualize-able form.
+
+** Caveats
+
+The data isn't particularly accurate: most of the locations I know of are in the
+right ballpark (within a few miles), but some are completely off. It is,
+however, useful as a jumping-off point for further research.
+
+*If you hike to the exact coordinates given, you're unlikely to find anything*
+
+The data I'm visualizing here comes from the post-1982 incident database. A
+database of older incidents exists also, but it doesn't appear to contain any
+location information. Finally, while civilian incidents are well-covered by this
+dataset, I don't know if military ones are covered as well.
+
+* Details
+
+This all works /today/ (January 2019) on my up-to-date Debian/sid box. The URLs
+and tools and such can change at any time, so interpret all this as a set of
+loose guidelines. Make adjustments as required.
+
+** NTSB incident database
+
+The main website that describes the reports is this:
 https://www.ntsb.gov/_layouts/ntsb.aviation/index.aspx
+
+It points to a repository of databases:
 https://app.ntsb.gov/avdata/
 
-wget -r -np -e robots=off https://app.ntsb.gov/avdata/Access/
+We grab the database of events we care about. Today the post-1982 data can be
+obtained and extracted thusly:
 
-I unzipped them all. And I
+#+BEGIN_EXAMPLE
+$ wget https://app.ntsb.gov/avdata/Access/avall.zip
 
-  ../../../mdb2sqlite.py blah.mdb | sqlite3 blah.sqlite
-select * from events where trim(lower(ev_city)) = 'sunland';
+$ unzip avall.zip
+#+END_EXAMPLE
 
+We now have a Microsoft Access database file: =avall.mdb= with all the data. The
+things I care about live in the =events= and =aircraft= tables. I extract those
+into an sqlite database, query the columns I want as csv, and convert to a form
+I can work with: [[http://github.com/dkogan/vnlog][vnlog]]:
 
-select * from events where lower(ev_city) like 'sunland%' and ev_state = 'CA';
+#+BEGIN_EXAMPLE
+$ ( mdb-schema avall.mdb sqlite -T aircraft;
+    echo "BEGIN;";
+    mdb-export -I sqlite avall.mdb aircraft;
+    echo "COMMIT;";
+  ) | sqlite3 data.sqlite
 
+$ ( mdb-schema avall.mdb sqlite -T events;
+    echo "BEGIN;";
+    mdb-export -I sqlite avall.mdb events;
+    echo "COMMIT;";
+  ) | sqlite3 data.sqlite
 
-ev_id
+$ sqlite3 -header -csv data.sqlite \
+    'select events.ev_id,ev_year,acft_make,acft_model,acft_series,acft_serial_no,latitude,longitude,wx_obs_fac_id,wx_obs_dist,wx_obs_dir,printf("https://app.ntsb.gov/pdfgenerator/ReportGeneratorFile.ashx?EventID=%s&AKey=1&RType=HTML&IType=CA",events.ev_id) as url from events,aircraft where events.ev_id==aircraft.ev_id;' |
+    ./csv-to-vnl.pl > data.vnl
+#+END_EXAMPLE
 
+Yes, =vnlog= isn't a real database, so lookups will be much slower than if I
+continued with sqlite. But many things become simple, and I'm going to be doing
+very few lookups, so this is ok.
 
-https://app.ntsb.gov/pdfgenerator/ReportGeneratorFile.ashx?EventID=20120214X84853&AKey=1&RType=HTML&IType=CA
+** Airport codes
 
+Alright. If we're getting the location in reference to some observing airport,
+we need to know where each airport is. There're a number of lists on the
+internet of airport codes. For this project I'd like to know the location of a
+bunch of tiny, obscure airports, so most lists were insufficient. This list [[https://datahub.io/core/airport-codes][here]]
+was sufficiently complete. The data is licensed under the Public Domain
+Dedication and License (PDDL). I download the dataset, and convert it to a nice
+vnlog containing just the data I need
 
-* havelatlon
+#+BEGIN_EXAMPLE
+$ wget https://datahub.io/core/airport-codes/r/airport-codes.csv
 
-select latitude,longitude,printf("https://app.ntsb.gov/pdfgenerator/ReportGeneratorFile.ashx?EventID=%s&AKey=1&RType=HTML&IType=CA",ev_id) from events where trim(latitude) != '';
+$ ./parse-airport-data.pl > airports.vnl
+#+END_EXAMPLE
 
-and then a bit of manual reformatting
+And then I add these location fields to the main dataset
 
-* distance from observation
+#+BEGIN_EXAMPLE
+$ vnl-join -a1 --vnl-sort - -j wx_obs_fac_id                                               \
+    data.vnl                                                                               \
+    <(< airports.vnl vnl-filter -p wx_obs_fac_id=code,lat-observing=lat,lon-observing=lon) \
+  > joint.vnl
+#+END_EXAMPLE
 
-select wx_obs_fac_id,wx_obs_dist,wx_obs_dir,printf("https://app.ntsb.gov/pdfgenerator/ReportGeneratorFile.ashx?EventID=%s&AKey=1&RType=HTML&IType=CA",ev_id) from events where wx_obs_dist is not null and wx_obs_dist > 0;
+** Putting it all together
 
-observed.vnl
+Now we have all the information, and we run another script to generate a =.kml=
+that mapping tools can ingest. To see all the incidents in the San Gabriel
+Mountains:
 
-* extracting airport codes
-
-Got raw data ([[file:airport-codes_csv.csv]]) from here:
-
-https://datahub.io/core/airport-codes
-
-
-There were several places where this data was available, but many of these weren't as complete as I needed them to be. For instance this:
-
-  https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat
-
-was missing the WDG airport (and presumably many others).
-
-./parse_airport_data.pl
-
-* plotting
-
-< havelatlon.vnl vnl-filter 'latitude > 34.1 && latitude < 34.5 && longitude > -118.3 && longitude < -117.9' -p lon,lat > havelatlon.lonlat.vnl
-
-~/projects/osmgnuplot/osmgnuplot.pl --zoom 5 --center 34,-118 --rad 60miles
-
+#+BEGIN_EXAMPLE
+$ ./make-map.pl 34.08 -118.52 34.54 -117.38 joint.vnl > wrecks.kml
+#+END_EXAMPLE
