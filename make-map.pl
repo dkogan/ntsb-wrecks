@@ -164,30 +164,41 @@ while (<$fd>)
     next unless defined($lat) && defined($lon)   &&
       defined($distance_nm)                      &&
       defined($direction)                        &&
-      $distance_nm                               &&
-      $lat0-$lat_r < $lat && $lat < $lat0+$lat_r &&
-      $lon0-$lon_r < $lon && $lon < $lon0+$lon_r;
+      $distance_nm;
 
-    my $this =  $polygon_header =~ s/xxxxNAMExxxx/getname($d)/er;
-    $this    =~ s/xxxxDESCRIPTIONxxxx/$url/;
-    print $this;
 
     # I generate line segments from the given location along the given
     # direction. I can do this more precisely, but unless the distances are very
     # large, latlon are cartesian if I scale the lon by cos(lat)
     my $clat = cos($lat * pi/180.);
-    sub write_point
+    sub position_along_bearing_line
     {
         my ($lat, $lon, $distance_nm, $direction_deg) = @_;
         my $cdir = cos($direction_deg * pi/180.);
         my $sdir = sin($direction_deg * pi/180.);
 
         my $d_deg = $distance_nm / 60.; # nautical miles to degrees
-
-        my $this = $polygon =~ s/xxxxLATxxxx/$lat - $d_deg * $cdir/er;
-        $this =~ s{xxxxLONxxxx}{$lon - $d_deg * $sdir/$clat}e;
+        return ($lat - $d_deg * $cdir,
+                $lon - $d_deg * $sdir/$clat);
+    }
+    sub write_point
+    {
+        my ($lat,$lon) = position_along_bearing_line(@_);
+        my $this = $polygon =~ s/xxxxLATxxxx/$lat/er;
+        $this =~ s{xxxxLONxxxx}{$lon}e;
         print $this;
     }
+
+    my ($center_lat, $center_lon) =
+      position_along_bearing_line($lat, $lon, $distance_nm, $direction);
+
+    next unless
+      $lat0-$lat_r < $center_lat && $center_lat < $lat0+$lat_r &&
+      $lon0-$lon_r < $center_lon && $center_lon < $lon0+$lon_r;
+
+    my $this =  $polygon_header =~ s/xxxxNAMExxxx/getname($d)/er;
+    $this    =~ s/xxxxDESCRIPTIONxxxx/$url/;
+    print $this;
 
     write_point($lat, $lon, $distance_nm-0.5, $direction-0.5);
     write_point($lat, $lon, $distance_nm-0.5, $direction+0.5);
