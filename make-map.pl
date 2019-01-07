@@ -4,16 +4,39 @@ use warnings;
 
 use Vnlog::Parser;
 use Math::Trig;
+use Scalar::Util 'looks_like_number';
 
 use feature ':5.10';
 use autodie;
 
-# San Gabriel mountains
-my $lat0           = 34.31;
-my $lon0           = -117.95;
-my $lat_r          = 0.23;
-my $lon_r          = 0.57;
-my $input_filename = 'joint.vnl';
+
+my $usage =
+  "$0 lat0 lon0 lat1 lon1 input.vnl\n" .
+  "  Pass in the corners of the region of interest, and the input vnlog\n";
+
+my ($lat0,$lon0,$lat1,$lon1,$input_filename) = @ARGV;
+if( !defined($input_filename) || !-r $input_filename )
+{
+    $input_filename //= 'UNDEFINED';
+    say STDERR $usage;
+    say STDERR "I tried to read '$input_filename' as a file, and couldn't";
+    exit 1;
+}
+if( !( defined($lat0) && looks_like_number($lat0) &&
+       defined($lon0) && looks_like_number($lon0) &&
+       defined($lat1) && looks_like_number($lat1) &&
+       defined($lon1) && looks_like_number($lon1) ) )
+{
+    say STDERR $usage;
+    exit 1;
+}
+
+my $lat_r = abs($lat1 - $lat0) / 2.;
+my $lon_r = abs($lon1 - $lon0) / 2.;
+$lat0 = ($lat0 + $lat1) / 2.;
+$lon0 = ($lon0 + $lon1) / 2.;
+
+
 
 my $document_header = <<'EOF';
 <?xml version="1.0" encoding="UTF-8"?>
