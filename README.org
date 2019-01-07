@@ -2,6 +2,10 @@
 
 Check this out!
 
+[[file:wrecks.png]]
+
+Interactive map at
+
 https://caltopo.com/m/N13E
 
 WARNING: non-tiny amount of data, so this is SLOW
@@ -112,3 +116,10 @@ Mountains:
 #+BEGIN_EXAMPLE
 $ ./make-map.pl 34.08 -118.52 34.54 -117.38 joint.vnl > wrecks.kml
 #+END_EXAMPLE
+
+This file is visualized in that =caltopo= link above.
+
+* License
+
+All code Copyright 2019 Dima Kogan, released under the terms of the Lesser GNU
+Public License (any version)
