@@ -38,43 +38,12 @@ while(<$fd_in>)
 }
 
 
-__END__
 
-# This is for airports.dat from
-#   https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat
-# That dataset isn't as complete as I need it to be
-
-
-my $fd_in;
-open $fd_in, '<', 'airports.dat';
-
-my $fd_out;
-open $fd_out, '>', 'airports.vnl';
-say $fd_out '# code lat lon';
-
-while(<$fd_in>)
+sub accept_id
 {
-    my @F = split(',');
-    process($F[4],   $F[6],$F[7]);
-    process($F[5],   $F[6],$F[7]);
-
-    if( $F[5] =~ /^"K(.+)"/ )
+    my ($ids, $id) = @_;
+    if ($id =~ /[a-z]/i && length($id) > 1)
     {
-        process("\"$1\"",$F[6],$F[7]);
+        $ids->{$id} = 1;
     }
 }
-
-
-sub process
-{
-    my ($id, $lat, $lon) = @_;
-
-    return if $id eq "\\N";
-    return if $id =~ / /;
-    return if $lat =~ /[^-0-9\.]/ || $lon =~ /[^-0-9\.]/;
-
-    $id =~ s/\"(.*)\"/$1/;
-    $id = uc $id;
-    say $fd_out "$id $lat $lon";
-}
-
