@@ -170,10 +170,9 @@ while (<$fd>)
     # I generate line segments from the given location along the given
     # direction. I can do this more precisely, but unless the distances are very
     # large, latlon are cartesian if I scale the lon by cos(lat)
-    my $clat = cos($lat * pi/180.);
     sub position_along_bearing_line
     {
-        my ($lat, $lon, $distance_nm, $direction_deg) = @_;
+        my ($lat, $lon, $clat, $distance_nm, $direction_deg) = @_;
         my $cdir = cos($direction_deg * pi/180.);
         my $sdir = sin($direction_deg * pi/180.);
 
@@ -189,8 +188,9 @@ while (<$fd>)
         print $this;
     }
 
+    my $clat = cos($lat * pi/180.);
     my ($center_lat, $center_lon) =
-      position_along_bearing_line($lat, $lon, $distance_nm, $direction);
+      position_along_bearing_line($lat, $lon, $clat, $distance_nm, $direction);
 
     next unless
       $lat0-$lat_r < $center_lat && $center_lat < $lat0+$lat_r &&
@@ -200,11 +200,11 @@ while (<$fd>)
     $this    =~ s/xxxxDESCRIPTIONxxxx/$url/;
     print $this;
 
-    write_point($lat, $lon, $distance_nm-0.5, $direction-0.5);
-    write_point($lat, $lon, $distance_nm-0.5, $direction+0.5);
-    write_point($lat, $lon, $distance_nm+0.5, $direction+0.5);
-    write_point($lat, $lon, $distance_nm+0.5, $direction-0.5);
-    write_point($lat, $lon, $distance_nm-0.5, $direction-0.5);
+    write_point($lat, $lon, $clat, $distance_nm-0.5, $direction-0.5);
+    write_point($lat, $lon, $clat, $distance_nm-0.5, $direction+0.5);
+    write_point($lat, $lon, $clat, $distance_nm+0.5, $direction+0.5);
+    write_point($lat, $lon, $clat, $distance_nm+0.5, $direction-0.5);
+    write_point($lat, $lon, $clat, $distance_nm-0.5, $direction-0.5);
     print $polygon_footer;
 }
 close $fd;
