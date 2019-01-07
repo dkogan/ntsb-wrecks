@@ -10,22 +10,21 @@ use autodie;
 my $fd_in;
 open $fd_in, '<', 'airport-codes_csv.csv';
 
-my $fd_out;
-open $fd_out, '>', 'airports.vnl';
-say $fd_out '# code lat lon';
+say '# code lat lon';
 
 while(<$fd_in>)
 {
     next if $. == 1;
 
+    s/#//g;
     s/"(.*?)"/ $1 =~ s{,}{_}gr /ge;
     my @F = split(',');
 
     my %ids;
-    $ids{$F[0]}  = 1;
-    $ids{$F[8]}  = 1;
-    $ids{$F[9]}  = 1;
-    $ids{$F[10]} = 1;
+    accept_id(\%ids, $F[0]);
+    accept_id(\%ids, $F[8]);
+    accept_id(\%ids, $F[9]);
+    accept_id(\%ids, $F[10]);
 
     my ($lon,$lat) = $F[11] =~ /^([-0-9\.]+) *_ *([-0-9\.]+)/;
 
@@ -33,7 +32,7 @@ while(<$fd_in>)
 
     for my $id (keys %ids)
     {
-        say $fd_out "$id $lat $lon" if length($id);
+        say "$id $lat $lon" if length($id);
     }
 }
 
