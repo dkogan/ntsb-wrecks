@@ -8,12 +8,12 @@ use Math::Trig;
 use feature ':5.10';
 use autodie;
 
-my $lat0           = 34.3;
-my $lon0           = -118.0;
-my $lat_r          = 0.5;
-my $lon_r          = 0.5;
+# San Gabriel mountains
+my $lat0           = 34.31;
+my $lon0           = -117.95;
+my $lat_r          = 0.23;
+my $lon_r          = 0.57;
 my $input_filename = 'joint.vnl';
-
 
 my $document_header = <<'EOF';
 <?xml version="1.0" encoding="UTF-8"?>
