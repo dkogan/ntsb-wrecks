@@ -148,16 +148,16 @@ while (<$fd>)
 
     my $lat = convert_latitude( $d->{latitude});
     my $lon = convert_longitude($d->{longitude});
-    my $url = $d->{url} =~ s/&/&amp;/gr;
 
     next unless defined($lat) && defined($lon)   &&
       $lat0-$lat_r < $lat && $lat < $lat0+$lat_r &&
       $lon0-$lon_r < $lon && $lon < $lon0+$lon_r;
 
     my $this = $marker =~ s/xxxxNAMExxxx/getname($d)/er;
-    $this =~ s/xxxxDESCRIPTIONxxxx/$url/;
+    $this =~ s/xxxxDESCRIPTIONxxxx/getdescription($d->{ev_id})/e;
     $this =~ s/xxxxLONxxxx/$lon/;
     $this =~ s/xxxxLATxxxx/$lat/;
+
     print $this;
 }
 close $fd;
@@ -182,7 +182,6 @@ while (<$fd>)
     my $lon         = $d->{"lon-observing"};
     my $direction   = $d->{wx_obs_dir};
     my $distance_nm = $d->{wx_obs_dist};
-    my $url         = $d->{url} =~ s/&/&amp;/gr;
 
     next unless defined($lat) && defined($lon)   &&
       defined($distance_nm)                      &&
@@ -220,7 +219,7 @@ while (<$fd>)
       $lon0-$lon_r < $center_lon && $center_lon < $lon0+$lon_r;
 
     my $this =  $polygon_header =~ s/xxxxNAMExxxx/getname($d)/er;
-    $this    =~ s/xxxxDESCRIPTIONxxxx/$url/;
+    $this =~ s/xxxxDESCRIPTIONxxxx/getdescription($d->{ev_id})/e;
     print $this;
 
     write_point($lat, $lon, $clat, $distance_nm-0.5, $direction-0.5);
@@ -244,6 +243,19 @@ sub getname
     return "$year $make $model" =~ s/&/&amp;/gr;
 }
 
+sub getdescription
+{
+    my ($id) = @_;
+    return "http://ntsb.secretsauce.net/$id\n";
+
+    # The above contains these 3 links:
+    # "Summary: https://app.ntsb.gov/pdfgenerator/ReportGeneratorFile.ashx?EventID=$id&amp;AKey=1&amp;RType=HTML&amp;IType=CA\n" .
+    # "Brief:   https://www.ntsb.gov/_layouts/ntsb.aviation/brief.aspx?ev_id=$id&amp;key=1\n" .
+    # "Full:    https://www.ntsb.gov/investigations/_layouts/ntsb.aviation/brief2.aspx?ev_id=$id&amp;akey=1";
+    #
+    # Caltopo currently doesn't make it possible to create 3 usable links
+
+}
 sub convert_latitude
 {
     my ($l) = @_;

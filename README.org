@@ -79,7 +79,7 @@ $ ( mdb-schema avall.mdb sqlite -T events;
   ) | sqlite3 data.sqlite
 
 $ sqlite3 -header -csv data.sqlite \
-    'select events.ev_id,ev_year,acft_make,acft_model,acft_series,acft_serial_no,latitude,longitude,wx_obs_fac_id,wx_obs_dist,wx_obs_dir,printf("https://app.ntsb.gov/pdfgenerator/ReportGeneratorFile.ashx?EventID=%s&AKey=1&RType=HTML&IType=CA",events.ev_id) as url from events,aircraft where events.ev_id==aircraft.ev_id;' |
+    'select events.ev_id,ev_year,acft_make,acft_model,acft_series,acft_serial_no,latitude,longitude,wx_obs_fac_id,wx_obs_dist,wx_obs_dir from events,aircraft where events.ev_id==aircraft.ev_id;' |
     ./csv-to-vnl.pl > data.vnl
 #+END_EXAMPLE
 
