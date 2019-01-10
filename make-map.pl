@@ -246,7 +246,7 @@ sub getname
 sub getdescription
 {
     my ($id) = @_;
-    return "http://ntsb.secretsauce.net/$id\n";
+    return "http://ntsb.secretsauce.net/$id";
 
     # The above contains these 3 links:
     # "Summary: https://app.ntsb.gov/pdfgenerator/ReportGeneratorFile.ashx?EventID=$id&amp;AKey=1&amp;RType=HTML&amp;IType=CA\n" .
