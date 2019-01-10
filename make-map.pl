@@ -39,91 +39,56 @@ $lon0 = ($lon0 + $lon1) / 2.;
 
 
 my $document_header = <<'EOF';
-<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-<Document>
-<name>Wreck sites</name>
-<description>Wreck sites from NTSB reports</description>
+{"type":"FeatureCollection",
+ "features":[
 EOF
 
 my $markers_header = <<'EOF';
-<Folder>
-<open>1</open>
-<name>Markers</name>
 EOF
 
 my $marker = <<'EOF';
-<Placemark>
-<name>xxxxNAMExxxx</name>
-<description>xxxxDESCRIPTIONxxxx</description>
-<Style>
-<IconStyle>
-<hotSpot x="0.5" y="0.5" xunits="fraction" yunits="fraction"/>
-<Icon>
-<href>http://caltopo.com/icon.png?cfg=point,FF0000</href>
-</Icon>
-</IconStyle>
-</Style>
-<Point>
-<coordinates>xxxxLONxxxx,xxxxLATxxxx,0
-</coordinates>
-</Point>
-</Placemark>
+{ "properties":{"title":"xxxxNAMExxxx",
+                "description":"xxxxDESCRIPTIONxxxx",
+                "folderId":null,
+                "marker-symbol":"point",
+                "marker-color":"FF0000",
+                "marker-rotation":null,
+                "class":"Marker"},
+  "geometry":{"type":"Point", "coordinates":[xxxxLONxxxx,xxxxLATxxxx]}}
 EOF
 
 my $markers_footer = <<'EOF';
-</Folder>
 EOF
 
 my $polygons_header = <<'EOF';
-<Folder>
-<open>1</open>
-<name>Lines and Polygons</name>
 EOF
 
 my $polygon_header = <<'EOF';
-<Placemark>
-<Style>
-<LineStyle>
-<color>FF0000FF</color>
-<width>2.0</width>
-</LineStyle>
-<PolyStyle>
-<fill>1</fill>
-<outline>1</outline>
-<width>2.0</width>
-<color>1A0000FF</color>
-</PolyStyle>
-</Style>
-<name>xxxxNAMExxxx</name>
-<description>xxxxDESCRIPTIONxxxx</description>
-<Polygon>
-<altitudeMode>clampToGround</altitudeMode>
-<tessellate>1</tessellate>
-<outerBoundaryIs>
-<LinearRing>
-<coordinates>
+{ "properties":{"title":"xxxxNAMExxxx",
+                "description":"xxxxDESCRIPTIONxxxx",
+                "folderId":null,
+                "gpstype":"TRACK",
+                "stroke-width":2,
+                "stroke-opacity":1,
+                "stroke":"#FF0000",
+                "fill-opacity":0.1,
+                "class":"Shape"},
+"geometry":{"type":"Polygon", "coordinates":[[
 EOF
 
 my $polygon_point = <<'EOF';
-xxxxLONxxxx,xxxxLATxxxx,0
+[xxxxLONxxxx,xxxxLATxxxx]
 EOF
 
 my $polygon_footer = <<'EOF';
-</coordinates>
-</LinearRing>
-</outerBoundaryIs>
-</Polygon>
-</Placemark>
+]]}}
 EOF
 
 my $polygons_footer = <<'EOF';
-</Folder>
 EOF
 
 my $document_footer = <<'EOF';
-</Document>
-</kml>
+]}
 EOF
 
 
@@ -133,6 +98,7 @@ my $parser;
 my $fd;
 
 # First, write the markers
+my $marker_printed_one = undef;
 print $markers_header;
 $parser = Vnlog::Parser->new();
 open $fd, '<', $input_filename;
@@ -153,6 +119,9 @@ while (<$fd>)
       $lat0-$lat_r < $lat && $lat < $lat0+$lat_r &&
       $lon0-$lon_r < $lon && $lon < $lon0+$lon_r;
 
+    print "," if $marker_printed_one;
+    $marker_printed_one = 1;
+
     my $this = $marker =~ s/xxxxNAMExxxx/getname($d)/er;
     $this =~ s/xxxxDESCRIPTIONxxxx/getdescription($d->{ev_id})/e;
     $this =~ s/xxxxLONxxxx/$lon/;
@@ -165,6 +134,8 @@ print $markers_footer;
 
 
 # Then, the observing sectors
+print "," if $marker_printed_one;
+my $polygon_printed_one = undef;
 print $polygons_header;
 $parser = Vnlog::Parser->new();
 open $fd, '<', $input_filename;
@@ -218,14 +189,21 @@ while (<$fd>)
       $lat0-$lat_r < $center_lat && $center_lat < $lat0+$lat_r &&
       $lon0-$lon_r < $center_lon && $center_lon < $lon0+$lon_r;
 
+    print "," if $polygon_printed_one;
+    $polygon_printed_one = 1;
+
     my $this =  $polygon_header =~ s/xxxxNAMExxxx/getname($d)/er;
     $this =~ s/xxxxDESCRIPTIONxxxx/getdescription($d->{ev_id})/e;
     print $this;
 
     write_point($lat, $lon, $clat, $distance_nm-0.5, $direction-0.5);
+    print ",";
     write_point($lat, $lon, $clat, $distance_nm-0.5, $direction+0.5);
+    print ",";
     write_point($lat, $lon, $clat, $distance_nm+0.5, $direction+0.5);
+    print ",";
     write_point($lat, $lon, $clat, $distance_nm+0.5, $direction-0.5);
+    print ",";
     write_point($lat, $lon, $clat, $distance_nm-0.5, $direction-0.5);
     print $polygon_footer;
 }

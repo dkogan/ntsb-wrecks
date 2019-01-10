@@ -114,13 +114,13 @@ $ vnl-join -a1 --vnl-sort - -j wx_obs_fac_id                                    
 
 ** Putting it all together
 
-Now we have all the information, and we run another script to generate a =.kml=
-that mapping tools can ingest. I cut it down to a small region because web
+Now we have all the information, and we run another script to generate a GeoJSON
+file that mapping tools can ingest. I cut it down to a small region because web
 browsers are glacially slow. To see all the incidents in the San Gabriel
 Mountains:
 
 #+BEGIN_EXAMPLE
-$ ./make-map.pl 34.08 -118.52 34.54 -117.38 joint.vnl > wrecks.kml
+$ ./make-map.pl 34.08 -118.52 34.54 -117.38 joint.vnl > wrecks.json
 #+END_EXAMPLE
 
 This file is visualized in that =caltopo= link above.
