@@ -105,7 +105,7 @@ my $polygon_header = <<'EOF';
 <coordinates>
 EOF
 
-my $polygon = <<'EOF';
+my $polygon_point = <<'EOF';
 xxxxLONxxxx,xxxxLATxxxx,0
 EOF
 
@@ -205,7 +205,7 @@ while (<$fd>)
     sub write_point
     {
         my ($lat,$lon) = position_along_bearing_line(@_);
-        my $this = $polygon =~ s/xxxxLATxxxx/$lat/er;
+        my $this = $polygon_point =~ s/xxxxLATxxxx/$lat/er;
         $this =~ s{xxxxLONxxxx}{$lon}e;
         print $this;
     }
