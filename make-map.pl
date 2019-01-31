@@ -112,8 +112,8 @@ while (<$fd>)
     my $d = $parser->getValuesHash();
     next unless %$d;
 
-    my $lat = convert_latitude( $d->{latitude});
-    my $lon = convert_longitude($d->{longitude});
+    my $lat = $d->{latitude};
+    my $lon = $d->{longitude};
 
     next unless defined($lat) && defined($lon)   &&
       $lat0-$lat_r < $lat && $lat < $lat0+$lat_r &&
@@ -233,34 +233,4 @@ sub getdescription
     #
     # Caltopo currently doesn't make it possible to create 3 usable links
 
-}
-sub convert_latitude
-{
-    my ($l) = @_;
-    return undef unless defined $l;
-
-    if($l =~ /^([0-9]+)([0-9][0-9])([0-9][0-9])N$/i)
-    {
-        return $1 + ($2 + $3/60.)/60.;
-    }
-    if($l =~ /^([0-9]+)([0-9][0-9])([0-9][0-9])S$/i)
-    {
-        return -($1 + ($2 + $3/60.)/60.);
-    }
-    return undef;
-}
-sub convert_longitude
-{
-    my ($l) = @_;
-    return undef unless defined $l;
-
-    if($l =~ /^([0-9]+)([0-9][0-9])([0-9][0-9])E$/i)
-    {
-        return $1 + ($2 + $3/60.)/60.;
-    }
-    if($l =~ /^([0-9]+)([0-9][0-9])([0-9][0-9])W$/i)
-    {
-        return -($1 + ($2 + $3/60.)/60.);
-    }
-    return undef;
 }

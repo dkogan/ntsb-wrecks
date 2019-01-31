@@ -61,9 +61,13 @@ $ unzip avall.zip
 #+END_EXAMPLE
 
 We now have a Microsoft Access database file: =avall.mdb= with all the data. The
-things I care about live in the =events= and =aircraft= tables. I extract those
-into an sqlite database, query the columns I want as csv, and convert to a form
-I can work with: [[http://github.com/dkogan/vnlog][vnlog]]:
+things I care about live in the =events= and =aircraft= tables. I
+
+- extract those into an sqlite database
+- query the columns I want as csv
+- make the latitude and longitude fields numeric (i.e."360148N 1190347W" becomes
+  "36.03 -119.063055555556")
+- convert to a form I can work with: [[http://github.com/dkogan/vnlog][vnlog]]
 
 #+BEGIN_EXAMPLE
 $ ( mdb-schema avall.mdb sqlite -T aircraft;
@@ -80,7 +84,11 @@ $ ( mdb-schema avall.mdb sqlite -T events;
 
 $ sqlite3 -header -csv data.sqlite \
     'select events.ev_id,ev_year,acft_make,acft_model,acft_series,acft_serial_no,latitude,longitude,wx_obs_fac_id,wx_obs_dist,wx_obs_dir from events,aircraft where events.ev_id==aircraft.ev_id;' |
-    ./csv-to-vnl.pl > data.vnl
+    ./csv-to-vnl.pl |
+    vnl-filter --perl \
+      --sub 'conv{return undef unless defined $_[0]; return $1 + ($2 + $3/60.)/60. if $_[0] =~ /^([0-9]+)([0-9][0-9])([0-9][0-9])[NE]$/i; return -($1 + ($2 + $3/60.)/60.) if $_[0] =~ /^([0-9]+)([0-9][0-9])([0-9][0-9])[SW]$/i; return undef;}' \
+       -p '!(latitude|longitude),latitude=conv(latitude),longitude=conv(longitude)' \
+    > data.vnl
 #+END_EXAMPLE
 
 Yes, =vnlog= isn't a real database, so lookups will be much slower than if I
