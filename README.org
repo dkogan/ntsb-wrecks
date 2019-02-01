@@ -111,16 +111,27 @@ $ wget https://datahub.io/core/airport-codes/r/airport-codes.csv
 $ ./parse-airport-data.pl > airports.vnl
 #+END_EXAMPLE
 
+** Putting it all together
+
 And then I add these location fields to the main dataset
 
 #+BEGIN_EXAMPLE
 $ vnl-join -a1 --vnl-sort - -j wx_obs_fac_id                                               \
     data.vnl                                                                               \
-    <(< airports.vnl vnl-filter -p wx_obs_fac_id=code,lat-observing=lat,lon-observing=lon) \
+    <(< airports.vnl vnl-filter -p wx_obs_fac_id=code,lat_observing=lat,lon_observing=lon) \
   > joint.vnl
 #+END_EXAMPLE
 
-** Putting it all together
+I later decided to make a website that can select subsets of the data, so I
+really did need fast lookups. So I can convert this vnlog to an sqlite db:
+
+#+BEGIN_EXAMPLE
+./vnl-to-sql.pl --real  latitude,longitude,lat_observing,lon_observing \
+                --index latitude,longitude,lat_observing,lon_observing \
+    < joint.vnl | sqlite3 joint.sqlite
+#+END_EXAMPLE
+
+** Visualize-able data output
 
 Now we have all the information, and we run another script to generate a GeoJSON
 file that mapping tools can ingest. I cut it down to a small region because web
@@ -128,7 +139,7 @@ browsers are glacially slow. To see all the incidents in the San Gabriel
 Mountains:
 
 #+BEGIN_EXAMPLE
-$ ./make-map.pl 34.08 -118.52 34.54 -117.38 joint.vnl > wrecks.json
+$ ./make-map.pl 34.08 -118.52 34.54 -117.38 joint.sqlite > wrecks.json
 #+END_EXAMPLE
 
 This file is visualized in that =caltopo= link above.
