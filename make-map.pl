@@ -5,14 +5,16 @@ use warnings;
 use Vnlog::Parser;
 use Math::Trig;
 use Scalar::Util 'looks_like_number';
+use DBI;
+use DBD::SQLite::Constants qw/:file_open/;
 
 use feature ':5.10';
 use autodie;
 
 
 my $usage =
-  "$0 lat0 lon0 lat1 lon1 input.vnl\n" .
-  "  Pass in the corners of the region of interest, and the input vnlog\n";
+  "$0 lat0 lon0 lat1 lon1 input.vnl|input.sqlite\n" .
+  "  Pass in the corners of the region of interest, and the input vnlog (or sqlite db)\n";
 
 my ($lat0,$lon0,$lat1,$lon1,$input_filename) = @ARGV;
 if( !defined($input_filename) || !-r $input_filename )
@@ -79,40 +81,72 @@ print $document_header;
 
 my $parser;
 my $fd;
+my $dbh;
 
 # First, write the markers
 my $marker_printed_one = undef;
 print $markers_header;
-$parser = Vnlog::Parser->new();
-open $fd, '<', $input_filename;
-while (<$fd>)
+
+
+
+sub ingest_point
 {
-    if ( !$parser->parse($_) )
-    {
-        die "Error parsing vnlog line '$_': " . $parser->error();
-    }
-
-    my $d = $parser->getValuesHash();
-    next unless %$d;
-
-    my $lat = $d->{latitude};
-    my $lon = $d->{longitude};
-
-    next unless defined($lat) && defined($lon)   &&
-      $lat0-$lat_r < $lat && $lat < $lat0+$lat_r &&
-      $lon0-$lon_r < $lon && $lon < $lon0+$lon_r;
+    my ($lat,$lon,$ev_id,$ev_year,$acft_make,$acft_model) = @_;
 
     print "," if $marker_printed_one;
     $marker_printed_one = 1;
 
-    my $this = $marker =~ s/xxxxNAMExxxx/getname($d)/er;
-    $this =~ s/xxxxDESCRIPTIONxxxx/getdescription($d->{ev_id})/e;
+    my $this = $marker =~ s/xxxxNAMExxxx/getname($ev_year,$acft_make,$acft_model)/er;
+    $this =~ s/xxxxDESCRIPTIONxxxx/getdescription($ev_id)/e;
     $this =~ s/xxxxLONxxxx/$lon/;
     $this =~ s/xxxxLATxxxx/$lat/;
 
     print $this;
 }
-close $fd;
+
+if($input_filename =~ /vnl$/)
+{
+    $parser = Vnlog::Parser->new();
+    open $fd, '<', $input_filename;
+    while (<$fd>)
+    {
+        if ( !$parser->parse($_) )
+        {
+            die "Error parsing vnlog line '$_': " . $parser->error();
+        }
+
+        my $d = $parser->getValuesHash();
+        next unless %$d;
+
+        my $lat = $d->{latitude};
+        my $lon = $d->{longitude};
+
+        next unless defined($lat) && defined($lon)   &&
+          $lat0-$lat_r < $lat && $lat < $lat0+$lat_r &&
+          $lon0-$lon_r < $lon && $lon < $lon0+$lon_r;
+
+        ingest_point($lat,$lon,$d->{ev_id},$d->{ev_year},$d->{acft_make},$d->{acft_model})
+    }
+    close $fd;
+}
+else
+{
+    $dbh = DBI->connect("dbi:SQLite:$input_filename",undef,undef,
+                        {sqlite_open_flags => SQLITE_OPEN_READONLY});
+    my $sql =
+      'SELECT latitude,longitude,ev_id,ev_year,acft_make,acft_model ' .
+      "FROM 'table' WHERE " .
+      "latitude  IS NOT NULL AND " .
+      "longitude IS NOT NULL AND " .
+      "$lat0-$lat_r < latitude  AND latitude  < $lat0+$lat_r AND " .
+      "$lon0-$lon_r < longitude AND longitude < $lon0+$lon_r;";
+    my $sth = $dbh->prepare($sql);
+    $sth->execute();
+    while (my @row = $sth->fetchrow_array)
+    {
+        ingest_point(@row);
+    }
+}
 print $markers_footer;
 
 
@@ -120,28 +154,11 @@ print $markers_footer;
 print "," if $marker_printed_one;
 my $polygon_printed_one = undef;
 print $polygons_header;
-$parser = Vnlog::Parser->new();
-open $fd, '<', $input_filename;
-while (<$fd>)
+
+
+sub ingest_wedge
 {
-    if ( !$parser->parse($_) )
-    {
-        die "Error parsing vnlog line '$_': " . $parser->error();
-    }
-
-    my $d = $parser->getValuesHash();
-    next unless %$d;
-
-    my $lat         = $d->{"lat-observing"};
-    my $lon         = $d->{"lon-observing"};
-    my $direction   = $d->{wx_obs_dir};
-    my $distance_nm = $d->{wx_obs_dist};
-
-    next unless defined($lat) && defined($lon)   &&
-      defined($distance_nm)                      &&
-      defined($direction)                        &&
-      $distance_nm;
-
+    my ($lat,$lon,$distance_nm,$direction,$ev_id,$ev_year,$acft_make,$acft_model) = @_;
 
     # I generate line segments from the given location along the given
     # direction. I can do this more precisely, but unless the distances are very
@@ -168,15 +185,15 @@ while (<$fd>)
     my ($center_lat, $center_lon) =
       position_along_bearing_line($lat, $lon, $clat, $distance_nm, $direction);
 
-    next unless
+    return unless
       $lat0-$lat_r < $center_lat && $center_lat < $lat0+$lat_r &&
       $lon0-$lon_r < $center_lon && $center_lon < $lon0+$lon_r;
 
     print "," if $polygon_printed_one;
     $polygon_printed_one = 1;
 
-    my $this =  $polygon_header =~ s/xxxxNAMExxxx/getname($d)/er;
-    $this =~ s/xxxxDESCRIPTIONxxxx/getdescription($d->{ev_id})/e;
+    my $this =  $polygon_header =~ s/xxxxNAMExxxx/getname($ev_year,$acft_make,$acft_model)/er;
+    $this =~ s/xxxxDESCRIPTIONxxxx/getdescription($ev_id)/e;
     print $this;
 
     write_point($lat, $lon, $clat, $distance_nm-0.5, $direction-0.5);
@@ -190,17 +207,71 @@ while (<$fd>)
     write_point($lat, $lon, $clat, $distance_nm-0.5, $direction-0.5);
     print $polygon_footer;
 }
-close $fd;
+
+
+
+if($input_filename =~ /vnl$/)
+{
+    $parser = Vnlog::Parser->new();
+    open $fd, '<', $input_filename;
+    while (<$fd>)
+    {
+        if ( !$parser->parse($_) )
+        {
+            die "Error parsing vnlog line '$_': " . $parser->error();
+        }
+
+        my $d = $parser->getValuesHash();
+        next unless %$d;
+
+        my $lat         = $d->{lat_observing};
+        my $lon         = $d->{lon_observing};
+        my $distance_nm = $d->{wx_obs_dist};
+        my $direction   = $d->{wx_obs_dir};
+
+        next unless defined($lat) && defined($lon)   &&
+          defined($distance_nm)                      &&
+          defined($direction)                        &&
+          defined($distance_nm);
+        ingest_wedge($lat,$lon,$distance_nm,$direction,$d->{ev_id},$d->{ev_year},$d->{acft_make},$d->{acft_model});
+    }
+    close $fd;
+}
+else
+{
+    # I'm already connected to a database, so I reuse $dbh
+
+    # This looks at lat/lon OBSERVING, not the real one, so I use a larger
+    # radius window to throw away records that clearly don't apply
+    my $sql =
+      'SELECT lat_observing,lon_observing,wx_obs_dist,wx_obs_dir,ev_id,ev_year,acft_make,acft_model ' .
+      "FROM 'table' WHERE " .
+      "lat_observing IS NOT NULL AND " .
+      "lon_observing IS NOT NULL AND " .
+      "wx_obs_dist   IS NOT NULL AND " .
+      "wx_obs_dir    IS NOT NULL AND " .
+      "$lat0-($lat_r+1.0) < lat_observing AND lat_observing < $lat0+($lat_r+1.0) AND " .
+      "$lon0-($lon_r+1.0) < lon_observing AND lon_observing < $lon0+($lon_r+1.0) AND " .
+      "$lat0-($lat_r+1.0) < lat_observing AND lat_observing < $lat0+($lat_r+1.0) AND " .
+      "$lon0-($lon_r+1.0) < lon_observing AND lon_observing < $lon0+($lon_r+1.0);";
+    my $sth = $dbh->prepare($sql);
+    $sth->execute();
+    while (my @row = $sth->fetchrow_array)
+    {
+        ingest_wedge(@row);
+    }
+}
 print $polygons_footer;
 
 print $document_footer;
 
 sub getname
 {
-    my ($d) = @_;
-    my $year      =  $d->{ev_year}    // '';
-    my $make      =  $d->{acft_make}  // '';
-    my $model     =  $d->{acft_model} // '';
+    my ($ev_year,$acft_make,$acft_model) = @_;
+
+    my $year      =  $ev_year    // '';
+    my $make      =  $acft_make  // '';
+    my $model     =  $acft_model // '';
     return "$year $make $model" =~ s/&/&amp;/gr;
 }
 
