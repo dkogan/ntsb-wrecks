@@ -39,22 +39,14 @@ $lon0 = ($lon0 + $lon1) / 2.;
 
 
 my $document_header = <<'EOF';
-{"type":"FeatureCollection",
- "features":[
+{"type":"FeatureCollection","features":[
 EOF
 
 my $markers_header = <<'EOF';
 EOF
 
 my $marker = <<'EOF';
-{ "properties":{"title":"xxxxNAMExxxx",
-                "description":"xxxxDESCRIPTIONxxxx",
-                "folderId":null,
-                "marker-symbol":"point",
-                "marker-color":"FF0000",
-                "marker-rotation":null,
-                "class":"Marker"},
-  "geometry":{"type":"Point", "coordinates":[xxxxLONxxxx,xxxxLATxxxx]}}
+{"properties":{"title":"xxxxNAMExxxx","description":"xxxxDESCRIPTIONxxxx"},"geometry":{"type":"Point", "coordinates":[xxxxLONxxxx,xxxxLATxxxx]}}
 EOF
 
 my $markers_footer = <<'EOF';
@@ -64,16 +56,7 @@ my $polygons_header = <<'EOF';
 EOF
 
 my $polygon_header = <<'EOF';
-{ "properties":{"title":"xxxxNAMExxxx",
-                "description":"xxxxDESCRIPTIONxxxx",
-                "folderId":null,
-                "gpstype":"TRACK",
-                "stroke-width":2,
-                "stroke-opacity":1,
-                "stroke":"#FF0000",
-                "fill-opacity":0.1,
-                "class":"Shape"},
-"geometry":{"type":"Polygon", "coordinates":[[
+{"properties":{"title":"xxxxNAMExxxx","description":"xxxxDESCRIPTIONxxxx"},"geometry":{"type":"Polygon","coordinates":[[
 EOF
 
 my $polygon_point = <<'EOF';
