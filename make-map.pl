@@ -97,7 +97,7 @@ sub ingest_point
     $marker_printed_one = 1;
 
     my $this = $marker =~ s/xxxxNAMExxxx/getname($ev_year,$acft_make,$acft_model)/er;
-    $this =~ s/xxxxDESCRIPTIONxxxx/getdescription($ev_id)/e;
+    $this =~ s/xxxxDESCRIPTIONxxxx/$ev_id/e;
     $this =~ s/xxxxLONxxxx/$lon/;
     $this =~ s/xxxxLATxxxx/$lat/;
 
@@ -193,7 +193,7 @@ sub ingest_wedge
     $polygon_printed_one = 1;
 
     my $this =  $polygon_header =~ s/xxxxNAMExxxx/getname($ev_year,$acft_make,$acft_model)/er;
-    $this =~ s/xxxxDESCRIPTIONxxxx/getdescription($ev_id)/e;
+    $this =~ s/xxxxDESCRIPTIONxxxx/$ev_id/e;
     print $this;
 
     write_point($lat, $lon, $clat, $distance_nm-0.5, $direction-0.5);
@@ -273,18 +273,4 @@ sub getname
     my $make      =  $acft_make  // '';
     my $model     =  $acft_model // '';
     return "$year $make $model" =~ s/&/&amp;/gr;
-}
-
-sub getdescription
-{
-    my ($id) = @_;
-    return "http://ntsb.secretsauce.net/$id";
-
-    # The above contains these 3 links:
-    # "Summary: https://app.ntsb.gov/pdfgenerator/ReportGeneratorFile.ashx?EventID=$id&amp;AKey=1&amp;RType=HTML&amp;IType=CA\n" .
-    # "Brief:   https://www.ntsb.gov/_layouts/ntsb.aviation/brief.aspx?ev_id=$id&amp;key=1\n" .
-    # "Full:    https://www.ntsb.gov/investigations/_layouts/ntsb.aviation/brief2.aspx?ev_id=$id&amp;akey=1";
-    #
-    # Caltopo currently doesn't make it possible to create 3 usable links
-
 }
