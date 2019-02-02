@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+
+<style>
+#btn {
+    position: absolute;
+    bottom:0; left: 0;
+    z-index: 1000;
+   
+}
+</style>
+
+<head>
+    <title>NTSB-reported crash locations</title>
+    <meta charset="utf-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js" integrity="sha512-QVftwZFqvtRNi0ZyCtsznlKSWOStnDORoefr1enyq5mVL4tmKB3S/EnC3rRJcxCPavG10IcrVGSmPh6Qw5lwrg==" crossorigin=""></script>
+
+    <script src="https://unpkg.com/esri-leaflet@2.2.3/dist/esri-leaflet.js"
+            integrity="sha512-YZ6b5bXRVwipfqul5krehD9qlbJzc6KOGXYsDjU9HHXW2gK57xmWl2gU6nAegiErAqFXhygKIsWPKbjLPXVb2g=="
+            crossorigin=""></script>
+
+    <script type="text/javascript" src="L.Control.MousePosition.js"></script>
+    <link rel="stylesheet" href="L.Control.MousePosition.css"/>
+
+    <style>
+      html, body, #map { height: 100%; width: 100vw; }
+      body { padding: 0; margin: 0; }
+    </style>
+</head>
+
+<body>
+<div id="map"></div>
+<div id='btn'>
+  <button onclick="zoom_to_here()">What happened here?</button>
+  <!-- <button onclick="zoom_to_default()">Look at incidents in the default area</button> -->
+</div>
+
+
+<script type="text/javascript">
+  function zoom_to_default() {
+      delete localStorage['coords'];
+      location.reload();
+  }
+  function zoom_to_here() {
+      var coords = ['South','West','North','East'].map((row) => {
+          return map.getBounds()['get' + row]();
+      });
+      localStorage['coords'] = JSON.stringify(coords);
+      location.reload();
+  }
+
+
+
+  var map = L.map('map')
+  L.esri.tiledMapLayer({
+      url: "https://services.arcgisonline.com/ArcGIS/rest/services/USA_Topo_Maps/MapServer"
+  }).addTo(map);
+
+  if(! ('coords' in localStorage)) {
+      localStorage['coords'] = '[34.195759386994894,-118.1601905822754,34.27877964630124,-118.04071426391603]';
+  }
+
+  try {
+      let coords = JSON.parse(localStorage['coords']);
+      map.fitBounds([coords.slice(0, 2), coords.slice(-2)]);
+
+      dataset = "http://ntsb.secretsauce.net/cgi-bin/ntsb.pl?lat0=" + coords[0] + "&lon0=" + coords[1] + "&lat1=" + coords[2] + "&lon1=" + coords[3] + "&limit=100";
+      loadData(dataset);
+  }catch(ex){
+      console.log(ex);
+  }
+
+  L.control.mousePosition({position:    "topright",
+                           separator:   ",",
+                           emptystring: "-"
+                          }).addTo(map);
+
+  function loadData(dataset) {
+      fetch(dataset)
+          .then(res => res.json())
+          .then(data => {
+	      const features = data.features.map(f => {
+	          f.properties = {
+		      title:       f.properties.title,
+		      description: f.properties.description
+	          }
+	          return {
+		      type: 'Feature',
+		      ...f
+	          };
+	      });
+
+	      var obj = { radius: 8, fillColor: '#00ff00' };
+	      L.geoJSON(features, {
+	          onEachFeature: (feature,layer) => {
+		      
+		      layer.bindTooltip(feature.properties.title, {permanent: true});
+		      
+	          },
+	          pointToLayer: (feature, latlng) => {
+		      
+		      return L.circleMarker(latlng, obj);
+	          },
+	          style: (feature) => {
+		      return({color: '#F00'}); }
+	      }) .bindPopup(layer => {
+		  const {title, description} = layer.feature.properties;
+                  return `
+<h3>${title}</h3>
+<p><a href="https://app.ntsb.gov/pdfgenerator/ReportGeneratorFile.ashx?EventID=${description}&amp;AKey=1&amp;RType=HTML&amp;IType=CA">Summary</a></p>
+<p><a href="https://www.ntsb.gov/_layouts/ntsb.aviation/brief.aspx?ev_id=${description}&amp;key=1">Brief report</a></p>
+<p><a href="https://www.ntsb.gov/_layouts/ntsb.aviation/brief2.aspx?ev_id=${description}&amp;akey=1">Full report</a></p>`
+      })
+      .addTo(map);
+   });
+  }
+
+</script>
+</body>
+</html>
