@@ -2,15 +2,62 @@
 use strict;
 use warnings;
 
-use Vnlog::Parser;
+use feature ':5.10';
+use autodie;
+
+
+my $limit_sql_expression = "";
+my $Nlimit               = undef;
+
+if( $ENV{REQUEST_URI} )
+{
+    # This is a CGI script. I get the inputs from the URI
+    use CGI;
+    use CGI::Carp 'fatalsToBrowser';
+
+    use Scalar::Util 'looks_like_number';
+
+    my $q    = CGI->new;
+    my $lat0 = $q->param('lat0');
+    my $lon0 = $q->param('lon0');
+    my $lat1 = $q->param('lat1');
+    my $lon1 = $q->param('lon1');
+    $Nlimit  = $q->param('limit');
+
+    if ( !( looks_like_number($lat0) &&
+            looks_like_number($lon0) &&
+            looks_like_number($lat1) &&
+            looks_like_number($lon1) )) {
+        die "Error: I must have 4 numerical arguments: (lat0,lon0,lat1,lon1)\n" .
+          "Do something like: http://ntsb.secretsauce.net/cgi-bin/ntsb.pl?lat0=34.08&lon0=-118.52&lat1=34.54&lon1=-117.38";
+        exit 1;
+    }
+
+    if(looks_like_number($Nlimit))
+    {
+        $limit_sql_expression = " LIMIT $Nlimit";
+    }
+    else
+    {
+        $Nlimit = undef;
+    }
+
+    print CGI::header('application/json');
+
+    # my $dir = $Bin;
+    # need this because i'm using a /usr/lib/cgi-bin link for now...
+    my $dir = "/var/www/ntsb";
+
+    @ARGV = ($lat0,$lon0,$lat1,$lon1,"$dir/map/joint.sqlite");
+}
+
+
+
+
 use Math::Trig;
 use Scalar::Util 'looks_like_number';
 use DBI;
 use DBD::SQLite::Constants qw/:file_open/;
-
-use feature ':5.10';
-use autodie;
-
 
 my $usage =
   "$0 lat0 lon0 lat1 lon1 input.vnl|input.sqlite\n" .
@@ -44,17 +91,8 @@ my $document_header = <<'EOF';
 {"type":"FeatureCollection","features":[
 EOF
 
-my $markers_header = <<'EOF';
-EOF
-
 my $marker = <<'EOF';
 {"properties":{"title":"xxxxNAMExxxx","description":"xxxxDESCRIPTIONxxxx"},"geometry":{"type":"Point", "coordinates":[xxxxLONxxxx,xxxxLATxxxx]}}
-EOF
-
-my $markers_footer = <<'EOF';
-EOF
-
-my $polygons_header = <<'EOF';
 EOF
 
 my $polygon_header = <<'EOF';
@@ -69,9 +107,6 @@ my $polygon_footer = <<'EOF';
 ]]}}
 EOF
 
-my $polygons_footer = <<'EOF';
-EOF
-
 my $document_footer = <<'EOF';
 ]}
 EOF
@@ -84,17 +119,15 @@ my $fd;
 my $dbh;
 
 # First, write the markers
-my $marker_printed_one = undef;
-print $markers_header;
-
+my $printed_one = undef;
 
 
 sub ingest_point
 {
     my ($lat,$lon,$ev_id,$ev_year,$acft_make,$acft_model) = @_;
 
-    print "," if $marker_printed_one;
-    $marker_printed_one = 1;
+    print "," if $printed_one;
+    $printed_one = 1;
 
     my $this = $marker =~ s/xxxxNAMExxxx/getname($ev_year,$acft_make,$acft_model)/er;
     $this =~ s/xxxxDESCRIPTIONxxxx/$ev_id/e;
@@ -106,6 +139,8 @@ sub ingest_point
 
 if($input_filename =~ /vnl$/)
 {
+    require Vnlog::Parser;
+
     $parser = Vnlog::Parser->new();
     open $fd, '<', $input_filename;
     while (<$fd>)
@@ -139,7 +174,8 @@ else
       "latitude  IS NOT NULL AND " .
       "longitude IS NOT NULL AND " .
       "$lat0-$lat_r < latitude  AND latitude  < $lat0+$lat_r AND " .
-      "$lon0-$lon_r < longitude AND longitude < $lon0+$lon_r;";
+      "$lon0-$lon_r < longitude AND longitude < $lon0+$lon_r " .
+      $limit_sql_expression . ";";
     my $sth = $dbh->prepare($sql);
     $sth->execute();
     while (my @row = $sth->fetchrow_array)
@@ -147,18 +183,18 @@ else
         ingest_point(@row);
     }
 }
-print $markers_footer;
 
 
 # Then, the observing sectors
-print "," if $marker_printed_one;
-my $polygon_printed_one = undef;
-print $polygons_header;
-
-
 sub ingest_wedge
 {
     my ($lat,$lon,$distance_nm,$direction,$ev_id,$ev_year,$acft_make,$acft_model) = @_;
+
+    # I'd like to do this in the sql level, but the sql looks at the observer,
+    # only in a larger area. So I apply the limit in the perl instead. Good
+    # enough
+    state $N = 0;
+    return if defined $Nlimit && $N >= $Nlimit;
 
     # I generate line segments from the given location along the given
     # direction. I can do this more precisely, but unless the distances are very
@@ -189,8 +225,8 @@ sub ingest_wedge
       $lat0-$lat_r < $center_lat && $center_lat < $lat0+$lat_r &&
       $lon0-$lon_r < $center_lon && $center_lon < $lon0+$lon_r;
 
-    print "," if $polygon_printed_one;
-    $polygon_printed_one = 1;
+    print "," if $printed_one;
+    $printed_one = 1;
 
     my $this =  $polygon_header =~ s/xxxxNAMExxxx/getname($ev_year,$acft_make,$acft_model)/er;
     $this =~ s/xxxxDESCRIPTIONxxxx/$ev_id/e;
@@ -206,12 +242,16 @@ sub ingest_wedge
     print ",";
     write_point($lat, $lon, $clat, $distance_nm-0.5, $direction-0.5);
     print $polygon_footer;
+
+    $N++;
 }
 
 
 
 if($input_filename =~ /vnl$/)
 {
+    require Vnlog::Parser;
+
     $parser = Vnlog::Parser->new();
     open $fd, '<', $input_filename;
     while (<$fd>)
@@ -261,7 +301,6 @@ else
         ingest_wedge(@row);
     }
 }
-print $polygons_footer;
 
 print $document_footer;
 
@@ -272,5 +311,9 @@ sub getname
     my $year      =  $ev_year    // '';
     my $make      =  $acft_make  // '';
     my $model     =  $acft_model // '';
-    return "$year $make $model" =~ s/&/&amp;/gr;
+    my $name = "$year $make $model";
+
+    $name =~ s/&/&amp;/g;
+    $name =~ s/"/\\"/g;
+    return $name;
 }
