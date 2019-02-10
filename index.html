@@ -22,6 +22,8 @@
             integrity="sha512-YZ6b5bXRVwipfqul5krehD9qlbJzc6KOGXYsDjU9HHXW2gK57xmWl2gU6nAegiErAqFXhygKIsWPKbjLPXVb2g=="
             crossorigin=""></script>
 
+    <script src="leaflet-hash.js"></script>
+
     <script type="text/javascript" src="L.Control.MousePosition.js"></script>
     <link rel="stylesheet" href="L.Control.MousePosition.css"/>
 
@@ -44,11 +46,15 @@
       delete localStorage['coords'];
       location.reload();
   }
-  function zoom_to_here() {
+  function update_localStorage()
+  {
       var coords = ['South','West','North','East'].map((row) => {
           return map.getBounds()['get' + row]();
       });
       localStorage['coords'] = JSON.stringify(coords);
+  }
+  function zoom_to_here() {
+      update_localStorage();
       location.reload();
   }
 
@@ -59,9 +65,31 @@
       url: "https://services.arcgisonline.com/ArcGIS/rest/services/USA_Topo_Maps/MapServer"
   }).addTo(map);
 
-  if(! ('coords' in localStorage)) {
+
+  // Desired logic for when the user enters a new URL:  
+  //   if have hash: use it
+  //   else if have localStorage: use it
+  //   else: default location
+  function updateOnNewHashCallback() {
+      // We get here if the user is looking at the map, and pastes in a url with
+      // a new hash. The map was already updated, so we "press the button"
+      zoom_to_here();
+  }
+  var hash = new L.Hash(map,updateOnNewHashCallback);
+
+  if(location.hash)
+  {
+      var parsed = hash.parseHash(location.hash);
+      hash.map.setView(parsed.center, parsed.zoom);
+      update_localStorage();
+  }
+  else if(!('coords' in localStorage))
+  {
+      // No hash and no previously-viewed location. I take some arbitrary
+      // default
       localStorage['coords'] = '[34.195759386994894,-118.1601905822754,34.27877964630124,-118.04071426391603]';
   }
+  // At this point the localStorage has the coordinates I want. Load them.
 
   try {
       let coords = JSON.parse(localStorage['coords']);
