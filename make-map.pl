@@ -107,16 +107,36 @@ my $polygon_footer = <<'EOF';
 ]]}}
 EOF
 
-my $document_footer = <<'EOF';
-]}
+my $document_footer1 = <<'EOF';
+]
+EOF
+my $document_footer2 = <<'EOF';
+}
 EOF
 
 
 print $document_header;
 
+
+sub getname
+{
+    my ($ev_year,$acft_make,$acft_model) = @_;
+
+    my $year      =  $ev_year    // '';
+    my $make      =  $acft_make  // '';
+    my $model     =  $acft_model // '';
+    my $name = "$year $make $model";
+
+    $name =~ s/&/&amp;/g;
+    $name =~ s/"/\\"/g;
+    return $name;
+}
+
 my $parser;
 my $fd;
 my $dbh;
+my $Npoints = 0;
+my $Nwedges = 0;
 
 # First, write the markers
 my $printed_one = undef;
@@ -125,6 +145,8 @@ my $printed_one = undef;
 sub ingest_point
 {
     my ($lat,$lon,$ev_id,$ev_year,$acft_make,$acft_model) = @_;
+
+    $Npoints++;
 
     print "," if $printed_one;
     $printed_one = 1;
@@ -193,8 +215,7 @@ sub ingest_wedge
     # I'd like to do this in the sql level, but the sql looks at the observer,
     # only in a larger area. So I apply the limit in the perl instead. Good
     # enough
-    state $N = 0;
-    return if defined $Nlimit && $N >= $Nlimit;
+    return if defined $Nlimit && $Nwedges >= $Nlimit;
 
     # I generate line segments from the given location along the given
     # direction. I can do this more precisely, but unless the distances are very
@@ -243,7 +264,7 @@ sub ingest_wedge
     write_point($lat, $lon, $clat, $distance_nm-0.5, $direction-0.5);
     print $polygon_footer;
 
-    $N++;
+    $Nwedges++;
 }
 
 
@@ -302,18 +323,14 @@ else
     }
 }
 
-print $document_footer;
-
-sub getname
+print $document_footer1;
+if( $ENV{REQUEST_URI} )
 {
-    my ($ev_year,$acft_make,$acft_model) = @_;
-
-    my $year      =  $ev_year    // '';
-    my $make      =  $acft_make  // '';
-    my $model     =  $acft_model // '';
-    my $name = "$year $make $model";
-
-    $name =~ s/&/&amp;/g;
-    $name =~ s/"/\\"/g;
-    return $name;
+    my $limited = '';
+    if ( defined $Nlimit &&
+         ($Nwedges >= $Nlimit || $Npoints >= $Nlimit) ) {
+        $limited = 1;
+    }
+    print ",\"limited\": \"$limited\"";
 }
+print $document_footer2

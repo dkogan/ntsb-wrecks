@@ -2,10 +2,21 @@
 <html>
 
 <style>
-#btn {
+#footer {
     position: absolute;
     bottom:0; left: 0;
     z-index: 1000;
+}
+#header_toomanypoints {
+    position: absolute;
+    top:0; left: 50px;
+    z-index: 1000;
+    background-color: white;
+    color: red;
+    visibility: hidden;
+}
+#instructions {
+    background-color: white;
    
 }
 </style>
@@ -35,17 +46,20 @@
 
 <body>
 <div id="map"></div>
-<div id='btn'>
-  <button onclick="zoom_to_here()">What happened here?</button>
-  <!-- <button onclick="zoom_to_default()">Look at incidents in the default area</button> -->
+<div id='footer'>
+<div id='instructions'>
+Move the map, and hit the button at the bottom-left. Click the red
+locations for reports. <a href="http://blah.com">Click</a> for details.
+</div>
+<button onclick="zoom_to_here()">What happened here?</button>
 </div>
 
+<div id='header_toomanypoints'>
+Too many incidents were returned, and I threw out some results. Select a smaller
+area.
+</div>
 
 <script type="text/javascript">
-  function zoom_to_default() {
-      delete localStorage['coords'];
-      location.reload();
-  }
   function update_localStorage()
   {
       var coords = ['South','West','North','East'].map((row) => {
@@ -95,7 +109,7 @@
       let coords = JSON.parse(localStorage['coords']);
       map.fitBounds([coords.slice(0, 2), coords.slice(-2)]);
 
-      dataset = "http://ntsb.secretsauce.net/cgi-bin/ntsb.pl?lat0=" + coords[0] + "&lon0=" + coords[1] + "&lat1=" + coords[2] + "&lon1=" + coords[3] + "&limit=100";
+      dataset = "/cgi-bin/ntsb.pl?lat0=" + coords[0] + "&lon0=" + coords[1] + "&lat1=" + coords[2] + "&lon1=" + coords[3] + "&limit=100";
       loadData(dataset);
   }catch(ex){
       console.log(ex);
@@ -109,6 +123,12 @@
   function loadData(dataset) {
       fetch(dataset)
           .then(res => res.json())
+          .then( function (j)
+                 {
+                     document.getElementById('header_toomanypoints').style.visibility = (j.limited ? 'visible' : 'hidden');
+                     return j;
+                 }
+               )
           .then(data => {
 	      const features = data.features.map(f => {
 	          f.properties = {
