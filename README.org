@@ -6,9 +6,7 @@ Check this out!
 
 Interactive map at
 
-https://caltopo.com/m/N13E
-
-WARNING: non-tiny amount of data, so this is SLOW
+http://ntsb.secretsauce.net/map/
 
 * Overview
 
@@ -143,7 +141,12 @@ Mountains:
 $ ./make-map.pl 34.08 -118.52 34.54 -117.38 joint.sqlite > wrecks.json
 #+END_EXAMPLE
 
-This file is visualized in that =caltopo= link above.
+This file is visualized in that interactive map linked above.
+
+* Acknowledgement
+
+Huge thanks to Erik Price and Chris McKenzie for help in getting the interactive
+map working. I'm not a web dev.
 
 * License
 
