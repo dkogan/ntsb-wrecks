@@ -23,6 +23,8 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
+// Dima has added the updatedOnNewHashCallback stuff
+
 
 (function(window) {
 	var HAS_HASHCHANGE = (function() {
@@ -31,11 +33,11 @@
 			(doc_mode === undefined || doc_mode > 7);
 	})();
 
-	L.Hash = function(map) {
+	L.Hash = function(map,updatedOnNewHashCallback) {
 		this.onHashChange = L.Util.bind(this.onHashChange, this);
 
 		if (map) {
-			this.init(map);
+			this.init(map, updatedOnNewHashCallback);
 		}
 	};
 
@@ -75,12 +77,14 @@
 	L.Hash.prototype = {
 		map: null,
 		lastHash: null,
+		updatedOnNewHashCallback: null,
 
 		parseHash: L.Hash.parseHash,
 		formatHash: L.Hash.formatHash,
 
-		init: function(map) {
+		init: function(map,updatedOnNewHashCallback) {
 			this.map = map;
+			this.updatedOnNewHashCallback = updatedOnNewHashCallback;
 
 			// reset the hash
 			this.lastHash = null;
@@ -129,6 +133,8 @@
 				this.movingMap = true;
 
 				this.map.setView(parsed.center, parsed.zoom);
+
+				this.updatedOnNewHashCallback();
 
 				this.movingMap = false;
 			} else {
